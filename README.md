@@ -1,12 +1,14 @@
-# reminders
+# remindme
 
-A minimal local reminder system for Linux with Claude Code integration.
+A minimal local reminder tool system for Linux with a coding agent skill integration.
+
+I dont plan to add native windows support, but I'll prob setup WSL2 support sooner or later.
 
 ## How it works
 
-1. You create a reminder — via the `remindme` CLI or by telling Claude Code "remind me to X".
+1. You create a reminder — via the `remindme` CLI or through the agent skill.
 2. Reminders are stored as JSON files in `~/.reminders/`.
-3. A cron job runs every hour at `:01` and shows a dialog for any due reminders.
+3. A cron job runs every 5min and shows a dialog for any due reminders.
 
 ## Requirements
 
@@ -21,7 +23,18 @@ A minimal local reminder system for Linux with Claude Code integration.
 bash install.sh
 ```
 
-This copies the binaries to `~/.local/bin/`, installs the Claude Code skill to `~/.claude/skills/remind/`, creates `~/.reminders/`, and adds the cron job. Running it again is safe (idempotent).
+Copies the binaries to `~/.local/bin/`, creates `~/.reminders/`, and adds the cron job. Safe to re-run (idempotent). No AI agent dependency.
+
+**Optionally install the AI skill:**
+
+```bash
+bash install-skill.sh           # Claude Code (default)
+bash install-skill.sh cc        # same
+bash install-skill.sh claude-code  # same
+```
+
+Requires `~/.claude/` to exist (i.e. Claude Code must be installed). For other agents, the script will tell you to copy `skill/SKILL.md` manually.
+I may add support for opencode or other agents eventually.
 
 ## Uninstall
 
@@ -33,7 +46,7 @@ Removes binaries, skill, and cron entry. Leaves `~/.reminders/` intact.
 
 ## Usage
 
-### From Claude Code
+### From a Coding Agent
 
 Just say it naturally:
 
@@ -56,7 +69,7 @@ remindme --list
 ```
 ```
   1  Sat May 24 at 9:00 AM  Review deploy PR — Check the open deploy PR before end of day
-  2  Mon May 26 at 2:00 PM  Team retro — Retrospective meeting this afternoon
+  2  Mon May 26 at 2:00 PM  Check Tests — Check if tests passed on CI at 2
 ```
 
 **Delete by index:**
@@ -105,7 +118,5 @@ When a reminder is due the cron script shows a zenity dialog with:
 - **Open** — writes the full content to a temp file and opens it in your default terminal + `$EDITOR`. Deletes the reminder.
 - **Snooze 5min** — reschedules for 5 minutes later.
 - **Dismiss** — deletes the reminder.
-
-Missed reminders catch up: if the 10:01 job didn't run, the 11:01 job will pick up anything due before 11:01.
 
 Cron output and errors are logged to `~/.reminders/check.log`.
