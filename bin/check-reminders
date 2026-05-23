@@ -52,14 +52,17 @@ for file in "$REMINDERS_DIR"/*.json; do
         # Open: write full content to a tmpfile, open in terminal+editor
         tmp=$(mktemp /tmp/reminder-XXXXXX.txt)
         printf '=== %s ===\n\n%s\n\n---\n\n%s\n' "$title" "$description" "$content" > "$tmp"
-        terminal="${TERMINAL:-$(command -v kitty 2>/dev/null \
+        # Extract binary name only from $TERMINAL (it may contain flags like "kitty -1")
+        terminal="$(command -v "${TERMINAL%% *}" 2>/dev/null \
+            || command -v kitty 2>/dev/null \
             || command -v gnome-terminal 2>/dev/null \
             || command -v konsole 2>/dev/null \
             || command -v xfce4-terminal 2>/dev/null \
             || command -v x-terminal-emulator 2>/dev/null \
-            || echo xterm)}"
+            || echo xterm)"
         editor="${VISUAL:-${EDITOR:-$(command -v nvim 2>/dev/null || command -v vim 2>/dev/null || echo nano)}}"
         case "$(basename "$terminal")" in
+            kitty)                           "$terminal" --single-instance -- "$editor" "$tmp" & ;;
             xterm|xfce4-terminal|lxterminal) "$terminal" -e "$editor $tmp" & ;;
             *) "$terminal" -- "$editor" "$tmp" & ;;
         esac
