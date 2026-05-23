@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Join all args so both `claude code` and `"claude code"` work; default to "claude"
+# Join all args so no space issues
 AGENT="${*:-claude}"
 
 case "${AGENT,,}" in
