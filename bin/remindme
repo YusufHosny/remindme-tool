@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""remindme - create timed reminder files in ~/.reminders/"""
+import argparse, json, re, sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+
+def slugify(s):
+    return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')[:40]
+
+
+def parse_time_str(ts):
+    """Parse a time string like '9am', '9:30am', '14:00' → (hour, minute) or None."""
+    m = re.match(r'^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$', ts.strip().lower())
+    if not m:
+        return None
+    h, mn, ap = int(m.group(1)), int(m.group(2) or 0), m.group(3)
+    if ap == 'pm' and h != 12:
+        h += 12
+    elif ap == 'am' and h == 12:
+        h = 0
+    return h, mn
+
+
+def parse_when(s):
+    now = datetime.now().replace(second=0, microsecond=0)
+    sl = s.strip().lower()
+
+    # "in X units"
+    m = re.fullmatch(r'in\s+(\d+)\s*(m(?:in(?:utes?)?)?|h(?:ours?)?|d(?:ays?)?)', sl)
+    if m:
+        n, u = int(m.group(1)), m.group(2)[0]
+        return now + {'m': timedelta(minutes=n), 'h': timedelta(hours=n), 'd': timedelta(days=n)}[u]
+
+    # "tomorrow [at] <time>"
+    m = re.match(r'tomorrow(?:\s+at)?\s+(.*)', sl)
+    if m:
+        t = parse_time_str(m.group(1))
+        if t:
+            h, mn = t
+            return (now + timedelta(days=1)).replace(hour=h, minute=mn)
+
+    # "today [at] <time>"
+    m = re.match(r'today(?:\s+at)?\s+(.*)', sl)
+    if m:
+        t = parse_time_str(m.group(1))
+        if t:
+            h, mn = t
+            dt = now.replace(hour=h, minute=mn)
+            return dt if dt > now else dt + timedelta(days=1)
+
+    # "[next] <weekday> [at] <time>"
+    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    m = re.match(r'(?:next\s+)?(' + '|'.join(days) + r')(?:\s+at)?\s*(.*)?', sl)
+    if m:
+        target = days.index(m.group(1))
+        ahead = (target - now.weekday()) % 7 or 7
+        dt = now + timedelta(days=ahead)
+        time_part = (m.group(2) or '').strip()
+        t = parse_time_str(time_part) if time_part else None
+        h, mn = t if t else (9, 0)
+        return dt.replace(hour=h, minute=mn)
+
+    # Pure time: "9am", "14:30" → today if future, else tomorrow
+    t = parse_time_str(sl)
+    if t:
+        h, mn = t
+        dt = now.replace(hour=h, minute=mn)
+        return dt if dt > now else dt + timedelta(days=1)
+
+    # ISO / explicit formats
+    for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M', '%Y-%m-%d', '%m/%d/%Y %H:%M'):
+        try:
+            return datetime.strptime(s.strip(), fmt)
+        except ValueError:
+            continue
+
+    sys.exit(f"Cannot parse '{s}'. Try: 'tomorrow 9am', 'monday 2pm', 'in 2 hours', '2026-05-26 09:00'")
+
+
+def main():
+    p = argparse.ArgumentParser(description='Create a timed reminder')
+    p.add_argument('-t', '--title',       required=True, help='Short title')
+    p.add_argument('-d', '--description', required=True, help='One-sentence summary')
+    p.add_argument('-c', '--content',     default='',    help='Detailed content')
+    p.add_argument('-a', '--at',          required=True, help='When to remind')
+    args = p.parse_args()
+
+    dt = parse_when(args.at)
+    ts = int(dt.timestamp())
+    path = Path.home() / '.reminders' / f'{ts}-{slugify(args.title)}.json'
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps({
+        'title': args.title,
+        'description': args.description,
+        'content': args.content or args.description,
+    }, indent=2))
+    print(f"Reminder set: {dt:%A, %B %-d at %-I:%M %p}  →  {path.name}")
+
+
+if __name__ == '__main__':
+    main()
