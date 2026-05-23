@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hourly cron script: show zenity dialogs for due reminders in ~/.reminders/
+# Runs every 5min: show zenity dialogs for due reminders in ~/.reminders/
 
 REMINDERS_DIR="$HOME/.reminders"
 [[ -d "$REMINDERS_DIR" ]] || exit 0
@@ -61,8 +61,7 @@ for file in "$REMINDERS_DIR"/*.json; do
         "$terminal" -- "$editor" "$tmp" &
         rm "$file"
     elif [[ "$result" == "Snooze 5min" ]]; then
-        slug=$(basename "$file" .json | cut -d- -f2-)
-        mv "$file" "$REMINDERS_DIR/$((NOW + 300))-${slug}.json"
+        : # leave file in place; next cron tick (≤5min) will re-show it
     else
         # Dismiss or window closed
         rm "$file"

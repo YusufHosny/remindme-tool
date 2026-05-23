@@ -45,8 +45,23 @@ The `/remind` skill picks it up, extracts the structured fields, and calls `remi
 
 ### From the terminal
 
+**Create:**
 ```
-remindme -t <title> -d <description> -c <content> -a <when>
+remindme -t <title> -d <description> [-c <content>] -a <when>
+```
+
+**List:**
+```
+remindme --list
+```
+```
+  1  Sat May 24 at 9:00 AM  Review deploy PR — Check the open deploy PR before end of day
+  2  Mon May 26 at 2:00 PM  Team retro — Retrospective meeting this afternoon
+```
+
+**Delete by index:**
+```
+remindme --delete 1
 ```
 
 | Flag | Required | Description |
@@ -55,6 +70,8 @@ remindme -t <title> -d <description> -c <content> -a <when>
 | `-d` / `--description` | yes | One-sentence summary |
 | `-c` / `--content` | no | Full details (shown when you click Open) |
 | `-a` / `--at` | yes | When to remind |
+| `-l` / `--list` | — | List all pending reminders |
+| `-D` / `--delete N` | — | Delete reminder #N (from `--list`) |
 
 **Supported `--at` formats:**
 

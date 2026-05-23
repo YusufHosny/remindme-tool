@@ -78,13 +78,50 @@ def parse_when(s):
     sys.exit(f"Cannot parse '{s}'. Try: 'tomorrow 9am', 'monday 2pm', 'in 2 hours', '2026-05-26 09:00'")
 
 
+def load_reminders():
+    d = Path.home() / '.reminders'
+    files = sorted(d.glob('*.json'), key=lambda f: int(f.stem.split('-')[0]))
+    out = []
+    for f in files:
+        ts = int(f.stem.split('-')[0])
+        data = json.loads(f.read_text())
+        out.append((ts, f, data))
+    return out
+
+
 def main():
-    p = argparse.ArgumentParser(description='Create a timed reminder')
-    p.add_argument('-t', '--title',       required=True, help='Short title')
-    p.add_argument('-d', '--description', required=True, help='One-sentence summary')
-    p.add_argument('-c', '--content',     default='',    help='Detailed content')
-    p.add_argument('-a', '--at',          required=True, help='When to remind')
+    p = argparse.ArgumentParser(description='Create and manage timed reminders')
+    p.add_argument('-t', '--title',       help='Short title')
+    p.add_argument('-d', '--description', help='One-sentence summary')
+    p.add_argument('-c', '--content',     default='', help='Detailed content')
+    p.add_argument('-a', '--at',          help='When to remind')
+    p.add_argument('-l', '--list',        action='store_true', help='List all reminders')
+    p.add_argument('-D', '--delete',      type=int, metavar='N', help='Delete reminder by index (from --list)')
     args = p.parse_args()
+
+    if args.list:
+        reminders = load_reminders()
+        if not reminders:
+            print('No reminders.')
+            return
+        now = datetime.now()
+        for i, (ts, f, data) in enumerate(reminders, 1):
+            dt = datetime.fromtimestamp(ts)
+            overdue = ' (overdue)' if dt < now else ''
+            print(f"  {i}  {dt:%a %b %-d at %-I:%M %p}{overdue}  {data['title']} — {data['description']}")
+        return
+
+    if args.delete is not None:
+        reminders = load_reminders()
+        if not 1 <= args.delete <= len(reminders):
+            sys.exit(f"No reminder #{args.delete}. Run --list to see indexes.")
+        ts, f, data = reminders[args.delete - 1]
+        f.unlink()
+        print(f"Deleted: {data['title']}")
+        return
+
+    if not args.title or not args.description or not args.at:
+        p.error('--title, --description, and --at are required when creating a reminder')
 
     dt = parse_when(args.at)
     ts = int(dt.timestamp())

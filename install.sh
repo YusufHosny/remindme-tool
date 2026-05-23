@@ -17,7 +17,7 @@ mkdir -p ~/.claude/skills/remind
 cp "$SCRIPT_DIR/skill/SKILL.md" ~/.claude/skills/remind/SKILL.md
 
 # Cron job (idempotent — removes any old entry first)
-CRON_LINE="1 * * * * DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus $HOME/.local/bin/check-reminders >> $HOME/.reminders/check.log 2>&1"
+CRON_LINE="*/5 * * * * DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus $HOME/.local/bin/check-reminders >> $HOME/.reminders/check.log 2>&1"
 ( crontab -l 2>/dev/null | grep -v 'check-reminders'; echo "$CRON_LINE" ) | crontab -
 
 # PATH check
