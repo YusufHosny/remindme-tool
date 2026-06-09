@@ -4,28 +4,25 @@
 REMINDERS_DIR="$HOME/.reminders"
 [[ -d "$REMINDERS_DIR" ]] || exit 0
 
-# include paths that cron doesnt have
+# include paths that cron / Task Scheduler doesn't have
 export PATH="$HOME/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# Set up display vars that cron doesnt have
+# Set up display vars
 if [[ -z "${DISPLAY:-}" ]]; then
-    for lock in /tmp/.X*-lock; do
-        num="${lock##*/X}"; num="${num%%-lock}"
-        [[ "$num" =~ ^[0-9]+$ ]] && export DISPLAY=":$num" && break
-    done
-    export DISPLAY="${DISPLAY:-:0}"
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+        # WSLg manages the display automatically; :0 is always the right value
+        export DISPLAY=":0"
+    else
+        for lock in /tmp/.X*-lock; do
+            num="${lock##*/X}"; num="${num%%-lock}"
+            [[ "$num" =~ ^[0-9]+$ ]] && export DISPLAY=":$num" && break
+        done
+        export DISPLAY="${DISPLAY:-:0}"
+    fi
 fi
+
 uid=$(id -u)
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$uid/bus}"
-
-if ! command -v zenity &>/dev/null; then
-    echo "$(date): zenity not found, skipping" >> "$REMINDERS_DIR/check.log"
-    exit 0
-fi
-if ! command -v jq &>/dev/null; then
-    echo "$(date): jq not found, skipping" >> "$REMINDERS_DIR/check.log"
-    exit 0
-fi
 
 NOW=$(date +%s)
 shopt -s nullglob
@@ -48,7 +45,7 @@ for file in "$REMINDERS_DIR"/*.json; do
         --width=420 2>/dev/null)
     rc=$?
 
-    if [[ $rc -eq 0 ]]; then # Open
+    if [[ $rc -eq 0 ]]; then
         tmp=$(mktemp /tmp/reminder-XXXXXX.txt)
         printf '=== %s ===\n\n%s\n\n---\n\n%s\n' "$title" "$description" "$content" > "$tmp"
         zenity --text-info \
@@ -57,10 +54,9 @@ for file in "$REMINDERS_DIR"/*.json; do
             --width=500 --height=400 2>/dev/null
         rm -f "$tmp"
         rm "$file"
-
-    elif [[ "$result" == "Snooze 5min" ]]; then # Snooze
+    elif [[ "$result" == "Snooze 5min" ]]; then
         :
-    else # Dismiss or window closed
+    else
         rm "$file"
     fi
 done
