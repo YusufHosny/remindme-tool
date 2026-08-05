@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """remindme - create timed reminder files in ~/.reminders/"""
-import argparse, json, re, sys
+import argparse, json, re, shutil, subprocess, sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -89,12 +89,27 @@ def load_reminders():
     return out
 
 
+def fire(path):
+    """Hand the reminder file to check-reminders in a detached process."""
+    checker = Path(sys.argv[0]).resolve().parent / 'check-reminders'
+    if not checker.exists():
+        found = shutil.which('check-reminders')
+        if not found:
+            sys.exit('check-reminders not found — run install.sh')
+        checker = Path(found)
+    log = Path.home() / '.reminders' / 'check.log'
+    with log.open('a') as f:
+        subprocess.Popen([str(checker), str(path)], stdin=subprocess.DEVNULL,
+                         stdout=f, stderr=f, start_new_session=True)
+
+
 def main():
     p = argparse.ArgumentParser(description='Create and manage timed reminders')
     p.add_argument('-t', '--title',       help='Short title')
     p.add_argument('-d', '--description', help='One-sentence summary')
     p.add_argument('-c', '--content',     default='', help='Detailed content')
     p.add_argument('-a', '--at',          help='When to remind')
+    p.add_argument('-n', '--now',         action='store_true', help='Notify immediately instead of scheduling')
     p.add_argument('-l', '--list',        action='store_true', help='List all reminders')
     p.add_argument('-D', '--delete',      type=int, metavar='N', help='Delete reminder by index (from --list)')
     args = p.parse_args()
@@ -120,10 +135,13 @@ def main():
         print(f"Deleted: {data['title']}")
         return
 
-    if not args.title or not args.description or not args.at:
-        p.error('--title, --description, and --at are required when creating a reminder')
+    if args.now and args.at:
+        p.error('--now and --at are mutually exclusive')
 
-    dt = parse_when(args.at)
+    if not args.title or not args.description or not (args.at or args.now):
+        p.error('--title, --description, and --at (or --now) are required when creating a reminder')
+
+    dt = datetime.now() if args.now else parse_when(args.at)
     ts = int(dt.timestamp())
     path = Path.home() / '.reminders' / f'{ts}-{slugify(args.title)}.json'
     path.parent.mkdir(exist_ok=True)
@@ -132,7 +150,12 @@ def main():
         'description': args.description,
         'content': args.content or args.description,
     }, indent=2))
-    print(f"Reminder set: {dt:%A, %B %-d at %-I:%M %p}  →  {path.name}")
+
+    if args.now:
+        fire(path)
+        print(f"Reminder fired: {args.title}")
+    else:
+        print(f"Reminder set: {dt:%A, %B %-d at %-I:%M %p}  →  {path.name}")
 
 
 if __name__ == '__main__':

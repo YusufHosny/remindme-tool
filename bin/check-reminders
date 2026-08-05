@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Runs every 5min: show zenity dialogs for due reminders in ~/.reminders/
+# With file arguments: show those reminders now, regardless of their timestamp.
 
 REMINDERS_DIR="$HOME/.reminders"
 [[ -d "$REMINDERS_DIR" ]] || exit 0
@@ -27,10 +28,20 @@ export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user
 NOW=$(date +%s)
 shopt -s nullglob
 
-for file in "$REMINDERS_DIR"/*.json; do
-    ts=$(basename "$file" .json | cut -d- -f1)
-    [[ "$ts" =~ ^[0-9]+$ ]]     || continue
-    (( ts <= NOW ))             || continue
+if (( $# > 0 )); then
+    files=("$@")
+else
+    files=("$REMINDERS_DIR"/*.json)
+fi
+
+for file in "${files[@]}"; do
+    [[ -f "$file" ]] || continue
+
+    if (( $# == 0 )); then
+        ts=$(basename "$file" .json | cut -d- -f1)
+        [[ "$ts" =~ ^[0-9]+$ ]] || continue
+        (( ts <= NOW ))         || continue
+    fi
 
     title=$(jq -r .title       "$file")
     description=$(jq -r .description "$file")

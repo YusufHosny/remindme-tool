@@ -10,6 +10,8 @@ I dont plan to add native windows support, but I'll prob setup WSL2 support soon
 2. Reminders are stored as JSON files in `~/.reminders/`.
 3. A cron job runs every 5min and shows a dialog for any due reminders.
 
+Reminders created with `--now` skip the wait — they pop their dialog immediately.
+
 ## Requirements
 
 - `python3` (stdlib only)
@@ -56,12 +58,29 @@ Just say it naturally:
 
 The `/remind` skill picks it up, extracts the structured fields, and calls `remindme` for you.
 
+You can also have an agent ping you the moment it finishes a long job:
+
+> "run the migration and remind me when it's done"
+> "remind me as soon as the build finishes"
+
+The skill uses `--now` for these, so the dialog appears the instant the agent calls it.
+
 ### From the terminal
 
-**Create:**
+**Create (scheduled):**
 ```
 remindme -t <title> -d <description> [-c <content>] -a <when>
 ```
+
+**Create (instant):**
+```
+remindme -t <title> -d <description> [-c <content>] --now
+```
+
+Writes the reminder and pops its dialog right away instead of waiting for the next cron
+tick. The command returns immediately — the dialog runs in a detached process, so it never
+blocks the caller (an agent can fire one and move on). If the dialog can't be shown the
+file stays on disk and the next cron run retries it.
 
 **List:**
 ```
@@ -82,7 +101,8 @@ remindme --delete 1
 | `-t` / `--title` | yes | Short label (3–6 words) |
 | `-d` / `--description` | yes | One-sentence summary |
 | `-c` / `--content` | no | Full details (shown when you click Open) |
-| `-a` / `--at` | yes | When to remind |
+| `-a` / `--at` | yes (unless `--now`) | When to remind |
+| `-n` / `--now` | — | Notify immediately; mutually exclusive with `--at` |
 | `-l` / `--list` | — | List all pending reminders |
 | `-D` / `--delete N` | — | Delete reminder #N (from `--list`) |
 
@@ -113,7 +133,11 @@ Stored in `~/.reminders/<unix_timestamp>-<slug>.json`:
 
 ## Notification dialog
 
-When a reminder is due the cron script shows a zenity dialog with:
+`check-reminders` shows the dialogs. With no arguments it sweeps `~/.reminders/` and fires
+everything due (how cron calls it); given one or more reminder files it fires exactly those,
+regardless of timestamp (how `--now` calls it).
+
+When a reminder is due the script shows a zenity dialog with:
 
 - **Open** — writes the full content to a temp file and opens it in your default terminal + `$EDITOR`. Deletes the reminder.
 - **Snooze 5min** — reschedules for 5 minutes later.
