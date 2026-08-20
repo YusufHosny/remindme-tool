@@ -5,9 +5,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
 
-# Dependencies
-if command -v apt-get &>/dev/null; then
-    sudo apt-get install -y -q zenity jq
+# Dependencies — only reach for sudo if something is actually missing,
+# so re-runs work without an interactive terminal
+missing=()
+for dep in zenity jq; do
+    command -v "$dep" &>/dev/null || missing+=("$dep")
+done
+
+if (( ${#missing[@]} )); then
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get install -y -q "${missing[@]}"
+    else
+        echo "⚠  missing dependencies: ${missing[*]} — install them with your package manager, then re-run."
+        exit 1
+    fi
 fi
 
 # Binaries
